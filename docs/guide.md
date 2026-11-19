@@ -108,6 +108,8 @@ Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`pr
 
 ### 3. Make your channel app read the record (your app)
 
+> **No structured content in your app yet?** See [How wknd-next added structured content](https://github.com/AEMXSC/wknd-next/blob/main/docs/add-structured-content.md). It goes from the app's types to schemas, records and a read adapter, then this step.
+
 The preview frame simply loads your URL, so the app decides what `{path}` and `{tier}` mean. The [wknd-next](https://github.com/AEMXSC/wknd-next) app does three things you can copy:
 
 - It reads `?tier=preview` and queries the preview tier: `https://sc-api.adobeaem.workers.dev/preview/<org>/<site>/query.json`.
