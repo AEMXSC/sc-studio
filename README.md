@@ -57,6 +57,8 @@ A site without a `previews` sheet still opens the form, with a note saying no pr
 
 Your channel pages must allow being framed by `da.live`. Next.js and EDS pages do by default.
 
+No structured content in your app yet? See [How wknd-next added structured content](https://github.com/AEMXSC/wknd-next/blob/main/docs/add-structured-content.md).
+
 ## Sites using it
 
 | Site | Folder | Channels |
