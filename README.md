@@ -6,6 +6,10 @@ It works like a Content Fragment preview URL, but each site configures it, so on
 
 **App URL:** `https://da.live/app/aemxsc/sc-studio/studio#/<org>/<site>/<path-to-record>`
 
+**New to SC Studio?** Start with the **[team guide](docs/guide.md)**. It has screenshots, a demo talk track, step-by-step setup and troubleshooting.
+
+![SC Studio with a WKND trail alert](docs/images/01-studio-app.png)
+
 ---
 
 ## Use it on a site (two steps)
