@@ -77,12 +77,18 @@ async function detectSchema(doc, token) {
   }
 }
 
-async function loadChannels(doc, token, schema) {
-  let rows = [];
+/** The site's DA config (sheets "previews" and "data"), or {} when it has none. */
+async function loadSiteConfig(doc, token) {
   try {
     const resp = await daJson(`${DA_ADMIN}/config/${doc.org}/${doc.site}`, token);
-    rows = (await resp.json())?.previews?.data ?? [];
-  } catch { /* no site config: no channels */ }
+    return (await resp.json()) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function channelsFor(config, schema) {
+  const rows = config?.previews?.data ?? [];
   const all = rows.filter((r) => r.label && /^https:\/\//.test(r.url || '') && DEVICES[r.device]);
   const mine = all.filter((r) => !r.schema || !schema || r.schema === schema);
   return mine.length ? mine : all;
@@ -169,14 +175,38 @@ function wire() {
   new ResizeObserver(fitDevice).observe($('device-wrap'));
 }
 
-/* ---- Host the form app ourselves (no second DA shell / header) ----
+/* ---- Which structured content form to embed ----
+ * The form moved from aemsites/sc-editor into da-live (adobe/da-live#1477), and
+ * its asset picker (image and file fields from AEM Assets) lands there with
+ * adobe/da-live#1520. Pick the form with ?form=<key>, or per site with the key
+ * "sc-studio.form" in the site config's "data" sheet:
+ *   headless  stock sc-editor form, hosted here with no second DA header (default)
+ *   shell     the same form as a full da.live page
+ *   dalive    the da-live form at da.live/form (gets the picker when #1520 ships)
+ *   assets    da-live's scassets preview branch, to try the picker now
+ * Only these fixed Adobe URLs can be embedded. */
+const FORM_DIRECT = 'https://main--sc-editor--aemsites.aem.live/form.html#';
+const FORM_ORIGIN = new URL(FORM_DIRECT).origin;
+const FORM_SOURCES = {
+  headless: { hosted: true, url: FORM_DIRECT },
+  shell: { hosted: false, url: FORM_APP },
+  dalive: { hosted: false, url: 'https://da.live/form#' },
+  assets: { hosted: false, url: 'https://scassets--da-live--adobe.aem.page/form#' },
+};
+const DEFAULT_FORM = 'headless';
+
+function formSourceKey(config) {
+  const fromUrl = new URLSearchParams(window.location.search).get('form');
+  const fromConfig = (config?.data?.data ?? []).find((r) => r.key === 'sc-studio.form')?.value?.trim();
+  return [fromUrl, fromConfig].find((k) => k && Object.hasOwn(FORM_SOURCES, k)) || DEFAULT_FORM;
+}
+
+/* ---- Host the headless form ourselves (no second DA shell / header) ----
  * DA apps receive { ready, token, context } plus a MessagePort from their host.
  * We play that host for the embedded form, relaying our own SDK payload with
  * the document path. Child messages (title, hash) are ignored. The child
  * ignores repeat inits, so we retry a few times to beat its listener setup.
- * ?form=shell falls back to embedding the full da.live page. */
-const FORM_DIRECT = 'https://main--sc-editor--aemsites.aem.live/form.html#';
-const FORM_ORIGIN = new URL(FORM_DIRECT).origin;
+ * Full-page forms (shell, dalive, assets) sign in on their own. */
 
 function hostForm(frame, payload) {
   const init = () => {
@@ -205,15 +235,15 @@ function hostForm(frame, payload) {
   }
   const fullPath = `/${doc.org}/${doc.site}${doc.path}`;
   const frame = $('form-frame');
-  if (new URLSearchParams(window.location.search).get('form') === 'shell') {
-    frame.src = `${FORM_APP}${fullPath}`;
-  } else {
+  const config = await loadSiteConfig(doc, token);
+  const form = FORM_SOURCES[formSourceKey(config)];
+  if (form.hosted) {
     const { actions, ...payload } = sdk;
     hostForm(frame, { ...payload, context: { ...context, path: fullPath } });
-    frame.src = `${FORM_DIRECT}${fullPath}`;
   }
+  frame.src = `${form.url}${fullPath}`;
   const schema = await detectSchema(doc, token);
-  channels = await loadChannels(doc, token, schema);
+  channels = channelsFor(config, schema);
   $('channel').replaceChildren(...channels.map((c) => Object.assign(document.createElement('option'), { textContent: c.label })));
   if (!channels.length) {
     setStatus('No previews configured: add a "previews" sheet to this site\'s DA config (see the sc-studio README).', 'err');
