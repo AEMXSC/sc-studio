@@ -4,31 +4,39 @@
  * website, phone). Same idea as AEM Content Fragment preview URLs, driven by
  * each site's own config, so one copy serves every site:
  *
- *   DA site config, sheet "previews" (one row per channel):
+ *   DA site config, sheet "channels" (or "previews"), one row per channel:
  *     schema  | label            | url                                          | device
  *     roast   | Kiosk · roast    | https://my-app.example/?tier={tier}&p={path} | kiosk
  *
- *   A site with no "previews" sheet gets the form only.
+ *   A site with neither sheet gets the form only.
  *
  *   URL tokens: {tier} preview|live · {tld} page|live · {path} /folder/x
  *               {slug} x · {org} · {site}
- *   Devices: kiosk 1080×1920 · desktop 1280×800 · phone 390×844
+ *   Devices: phone · tablet · desktop · kiosk · car (empty = phone)
  *
- * Authors use the form's own Send. This app watches the record and refreshes
- * the channel (and reindexes the path) when a preview or publish lands.
+ * The default "live" form is drawn here on DA's structured content SDK: it autosaves,
+ * has Preview and Publish, and sends the draft to the channel as you type (see
+ * "Live drafts" below). The stock forms can still be embedded (?form=headless|assets…).
+ * Either way, Studio watches the record and refreshes the channel (and reindexes the
+ * path) when a preview or publish lands.
  */
 // eslint-disable-next-line import/no-unresolved
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
+import { startLiveForm } from './live.js';
 
 const FORM_APP = 'https://da.live/app/aemsites/sc-editor/form#';
 const DA_ADMIN = 'https://admin.da.live';
 const DA_SC = 'https://da-sc.adobeaem.workers.dev';
 const SC_API = 'https://sc-api.adobeaem.workers.dev';
 const DEVICES = {
-  kiosk: { w: 1080, h: 1920 },
-  desktop: { w: 1280, h: 800 },
   phone: { w: 390, h: 844 },
+  tablet: { w: 820, h: 1180 },
+  desktop: { w: 1280, h: 800 },
+  kiosk: { w: 1080, h: 1920 },
+  car: { w: 1280, h: 480 },
 };
+// Studio served by `aem up` (?ref=local): http://localhost channels are allowed too.
+const LOCAL = window.location.hostname === 'localhost';
 
 const $ = (id) => document.getElementById(id);
 let ctx;
@@ -77,7 +85,7 @@ async function detectSchema(doc, token) {
   }
 }
 
-/** The site's DA config (sheets "previews" and "data"), or {} when it has none. */
+/** The site's DA config (sheets "channels"/"previews" and "data"), or {} when it has none. */
 async function loadSiteConfig(doc, token) {
   try {
     const resp = await daJson(`${DA_ADMIN}/config/${doc.org}/${doc.site}`, token);
@@ -87,9 +95,19 @@ async function loadSiteConfig(doc, token) {
   }
 }
 
+/** https, or http://localhost while Studio itself runs locally. */
+function allowedUrl(url) {
+  return /^https:\/\//.test(url || '') || (LOCAL && /^http:\/\/localhost[:/]/.test(url || ''));
+}
+
+/** Channel rows: the "channels" sheet (as Frescopa Studio names it), else "previews". */
 function channelsFor(config, schema) {
-  const rows = config?.previews?.data ?? [];
-  const all = rows.filter((r) => r.label && /^https:\/\//.test(r.url || '') && DEVICES[r.device]);
+  const rows = (config?.channels ?? config?.previews)?.data ?? [];
+  const all = rows
+    .map((r) => ({ ...r, device: (r.device || 'phone').trim().toLowerCase() }))
+    .filter((r) => r.label && allowedUrl(r.url) && DEVICES[r.device])
+    // while developing, local apps first: they have your code changes
+    .sort((a, b) => Number(/^http:/.test(b.url)) - Number(/^http:/.test(a.url)));
   const mine = all.filter((r) => !r.schema || !schema || r.schema === schema);
   return mine.length ? mine : all;
 }
@@ -103,14 +121,15 @@ function setStatus(text, kind = '') {
 function fitDevice() {
   const ch = channels[$('channel').selectedIndex];
   if (!ch) return;
-  const { w, h } = DEVICES[ch.device];
+  const device = $('device-type').value || ch.device;
+  const { w, h } = DEVICES[device];
   const wrap = $('device-wrap').getBoundingClientRect();
   const scale = Math.min((wrap.width - 32) / w, (wrap.height - 32) / h, 1);
-  const device = $('device');
-  device.style.width = `${w}px`;
-  device.style.height = `${h}px`;
-  device.style.transform = `scale(${scale})`;
-  device.dataset.device = ch.device;
+  const el = $('device');
+  el.style.width = `${w}px`;
+  el.style.height = `${h}px`;
+  el.style.transform = `scale(${scale})`;
+  el.dataset.device = device;
 }
 
 function render() {
@@ -125,7 +144,30 @@ function render() {
   fitDevice();
 }
 
-/* ---- Watch the record: when the form's Send lands, refresh the channel ----
+/* ---- Live drafts: the channel shows unsaved changes as you type ----
+ * Same messages as Frescopa Studio, so an app built for either Studio works in both:
+ *   app -> Studio  { type: 'structured-content-ready' }
+ *   Studio -> app  { type: 'structured-content', org, site, path, data }
+ * Sent only with the live form and on the Preview tier, and only to the channel's own
+ * origin. An app that doesn't listen still updates after Preview. */
+let draft = null; // () => the live form's current data, once it has started
+let draftTimer;
+
+function sendDraft() {
+  const frame = $('preview-frame');
+  if (!draft || tier !== 'preview' || !frame.src) return;
+  const { org, site, path } = ctx.doc;
+  frame.contentWindow?.postMessage({
+    type: 'structured-content', org, site, path, data: draft(),
+  }, new URL(frame.src).origin);
+}
+
+function queueDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(sendDraft, 250);
+}
+
+/* ---- Watch the record: when a preview or publish lands, refresh the channel ----
  * Reads the record from da-sc for the tier on screen. On a change it reindexes
  * that path in the Structured Content API (so brand-new records also appear in
  * channel queries) and reloads the preview. No manual reload needed. */
@@ -165,35 +207,43 @@ async function watch() {
 }
 
 function wire() {
-  $('channel').addEventListener('change', render);
+  $('channel').addEventListener('change', () => {
+    $('device-type').value = channels[$('channel').selectedIndex]?.device ?? 'phone';
+    render();
+  });
+  $('device-type').addEventListener('change', fitDevice);
   $('reload').addEventListener('click', render);
   document.querySelectorAll('[data-tier]').forEach((b) => b.addEventListener('click', () => {
     tier = b.dataset.tier;
     document.querySelectorAll('[data-tier]').forEach((x) => x.classList.toggle('on', x === b));
     render();
   }));
+  window.addEventListener('message', (e) => {
+    if (e.source === $('preview-frame').contentWindow && e.data?.type === 'structured-content-ready') sendDraft();
+  });
   new ResizeObserver(fitDevice).observe($('device-wrap'));
 }
 
-/* ---- Which structured content form to embed ----
- * The form moved from aemsites/sc-editor into da-live (adobe/da-live#1477), and
- * its asset picker (image and file fields from AEM Assets) lands there with
- * adobe/da-live#1520. Pick the form with ?form=<key>, or per site with the key
- * "sc-studio.form" in the site config's "data" sheet:
- *   headless  stock sc-editor form, hosted here with no second DA header (default)
+/* ---- Which structured content form to use ----
+ * Pick with ?form=<key>, or per site with the key "sc-studio.form" in the site
+ * config's "data" sheet:
+ *   live      drawn here on DA's SDK: autosave, Preview/Publish, live drafts (default)
+ *   headless  stock sc-editor form, hosted here with no second DA header
  *   shell     the same form as a full da.live page
- *   dalive    the da-live form at da.live/form (gets the picker when #1520 ships)
- *   assets    da-live's scassets preview branch, to try the picker now
+ *   dalive    the da-live form at da.live/form (gets the asset picker when
+ *             adobe/da-live#1520 ships)
+ *   assets    da-live's scassets preview branch, to try the asset picker now
  * Only these fixed Adobe URLs can be embedded. */
 const FORM_DIRECT = 'https://main--sc-editor--aemsites.aem.live/form.html#';
 const FORM_ORIGIN = new URL(FORM_DIRECT).origin;
 const FORM_SOURCES = {
+  live: { live: true },
   headless: { hosted: true, url: FORM_DIRECT },
   shell: { hosted: false, url: FORM_APP },
   dalive: { hosted: false, url: 'https://da.live/form#' },
   assets: { hosted: false, url: 'https://scassets--da-live--adobe.aem.page/form#' },
 };
-const DEFAULT_FORM = 'headless';
+const DEFAULT_FORM = 'live';
 
 function formSourceKey(config) {
   const fromUrl = new URLSearchParams(window.location.search).get('form');
@@ -223,30 +273,61 @@ function hostForm(frame, payload) {
   });
 }
 
+function embedForm(sdk, form, fullPath) {
+  const frame = $('form-frame');
+  frame.hidden = false;
+  if (form.hosted) {
+    const { actions, ...payload } = sdk;
+    hostForm(frame, { ...payload, context: { ...sdk.context, path: fullPath } });
+  }
+  frame.src = `${form.url}${fullPath}`;
+}
+
+async function liveForm(sdk, doc) {
+  $('live').hidden = false;
+  $('open-in-da').href = `https://da.live/form#/${doc.org}/${doc.site}${doc.path}`;
+  const daFetch = sdk.actions?.daFetch
+    ?? ((url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${sdk.token}`, ...opts.headers } }));
+  try {
+    const live = await startLiveForm({
+      doc,
+      daFetch,
+      token: sdk.token,
+      els: {
+        form: $('live-form'), status: $('live-status'), preview: $('live-preview'), publish: $('live-publish'),
+      },
+      onDraft: queueDraft,
+      onPublished: () => watch(), // picks up the new version now, not on the next tick
+    });
+    draft = live.draft;
+    return live.schemaName;
+  } catch (error) {
+    $('live-status').textContent = error.message;
+    return '';
+  }
+}
+
 (async function init() {
   const sdk = await DA_SDK;
-  const { context, token } = sdk;
-  const doc = resolveDoc(context);
+  const { token } = sdk;
+  const doc = resolveDoc(sdk.context);
   ctx = { doc, token };
   wire();
   if (!doc.org || !doc.site || doc.path === '/') {
     setStatus('Open this app from a structured content document.', 'err');
     return;
   }
-  const fullPath = `/${doc.org}/${doc.site}${doc.path}`;
-  const frame = $('form-frame');
   const config = await loadSiteConfig(doc, token);
   const form = FORM_SOURCES[formSourceKey(config)];
-  if (form.hosted) {
-    const { actions, ...payload } = sdk;
-    hostForm(frame, { ...payload, context: { ...context, path: fullPath } });
-  }
-  frame.src = `${form.url}${fullPath}`;
-  const schema = await detectSchema(doc, token);
+  const schema = form.live
+    ? await liveForm(sdk, doc)
+    : (embedForm(sdk, form, `/${doc.org}/${doc.site}${doc.path}`), await detectSchema(doc, token));
   channels = channelsFor(config, schema);
-  $('channel').replaceChildren(...channels.map((c) => Object.assign(document.createElement('option'), { textContent: c.label })));
+  $('channel').replaceChildren(...channels.map((c) => new Option(c.label)));
+  $('device-type').replaceChildren(...Object.keys(DEVICES).map((d) => new Option(d[0].toUpperCase() + d.slice(1), d)));
+  $('device-type').value = channels[0]?.device ?? 'phone';
   if (!channels.length) {
-    setStatus('No previews configured: add a "previews" sheet to this site\'s DA config (see the sc-studio README).', 'err');
+    setStatus('No channels configured: add a "channels" sheet to this site\'s DA config (see the sc-studio README).', 'err');
     return;
   }
   setStatus(schema ? `Schema: ${schema} · watching for changes` : 'Schema not detected: showing all channels');

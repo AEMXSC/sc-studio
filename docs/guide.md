@@ -23,7 +23,7 @@ SC Studio puts the AEM structured content form next to a live preview of every c
 
 1. **Open a record in DA.** Browse to a records folder that's mapped to SC Studio (for example `/wknd-next/alerts` on wknd-adventures) and open a record. It opens in SC Studio instead of the plain form.
 2. **Pick a channel.** The menu at the top right lists only the channels for this record's schema: app, phone or website for a WKND alert. Each one is framed at its real size (desktop 1280×800, phone 390×844, kiosk 1080×1920) and scaled to fit.
-3. **Edit, then press Send.** Change a field and press the form's **Send**. Within about 4 seconds SC Studio sees the new version, reindexes that record and reloads the channel. You don't need to refresh anything yourself.
+3. **Type, and watch the channel.** Change a field and the channel shows it as you type. Changes save to DA automatically. Press **Preview** to update the preview for everyone, or **Publish** to go live. SC Studio then reindexes the record and reloads the channel. An app that doesn't listen for drafts updates after **Preview**. With an embedded stock form (`?form=headless`), use the form's **Send**, and the channel updates within about 4 seconds.
 4. **Compare draft and live.** **Preview** shows the previewed draft. **Published** shows what visitors see. Use **Open ↗** to open the channel full screen in a new tab, and **↻** to reload it.
 
 | Phone channel | Website channel |
@@ -82,7 +82,7 @@ Example from aemxsc:
 
 ### 2. List the channels to preview (site config)
 
-Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`previews`** with these four columns. Add one row per channel. The WKND rows are below:
+Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`channels`** with these four columns. The older name, `previews`, also works. `channels` is the name Frescopa Studio reads too. Devices are `phone`, `tablet`, `desktop`, `kiosk` and `car`. Add one row per channel. The WKND rows are below:
 
 | schema | label | url | device |
 |---|---|---|---|
@@ -103,8 +103,9 @@ Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`pr
 | `{org}`, `{site}` | from the record | `aemxsc`, `wknd-adventures` |
 
 - **schema** must match the record's schema name. A row with an empty schema shows for every record.
-- **url** must start with `https://`. **device** is `desktop`, `phone` or `kiosk`.
-- Without a `previews` sheet, SC Studio shows the form plus a note saying no previews are configured.
+- **url** must start with `https://`. **device** is `phone`, `tablet`, `desktop`, `kiosk` or `car`, and `phone` when it's empty.
+- Without either sheet, SC Studio shows the form plus a note saying no channels are configured.
+- **Live as you type:** to show drafts before they're previewed, the channel app listens for SC Studio's messages. See "Live drafts" in the [README](../README.md#live-drafts). wknd-next does this.
 
 ### 3. Make your channel app read the record (your app)
 
