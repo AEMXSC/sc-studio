@@ -1,6 +1,6 @@
 # SC Studio
 
-A Document Authoring (DA) app for **AEM structured content**. It puts the structured content form side by side with a live preview of every channel that uses the record: an app, a kiosk, a website page, a phone view. Authors type on the left and the channel on the right shows the change **as they type**, if the app listens for drafts (see [Live drafts](#live-drafts)). Changes save to DA automatically. **Preview** and **Publish** are next to the form.
+A Document Authoring (DA) app for **AEM structured content**. It puts the structured content form side by side with a live preview of every channel that uses the record: an app, a kiosk, a website page, a phone view. Authors edit on the left, press **Send**, and the preview on the right refreshes by itself. With the opt-in [live form](#choose-the-form), the channel shows the change **as they type**.
 
 It works like a Content Fragment preview URL, but each site configures it, so one copy of this app serves every site. Originally built as Kiosk Studio for the Fréscopa demo. The live form, live drafts and fragment picker are adapted from Kunwar Saluja's [Frescopa Studio](https://github.com/scdemos/demo/tree/main/tools/frescopa-studio) (Apache-2.0), and the two Studios use the same config sheet and messages.
 
@@ -39,7 +39,7 @@ In the **site** config (`https://da.live/config#/<org>/<site>/`), add a sheet na
 
   | token | value |
   |---|---|
-  | `{tier}` | `preview` or `live` (the toggle in the app) |
+  | `{tier}` | `preview` or `live` (the **Draft** / **Live** toggle in the app) |
   | `{tld}` | `page` or `live`, for `aem.page` / `aem.live` |
   | `{path}` | record path, e.g. `/wknd-next/alerts/leave-no-trace` |
   | `{slug}` | last path segment, e.g. `leave-no-trace` |
@@ -51,14 +51,14 @@ A site with neither sheet still opens the form, with a note saying no channels a
 
 ## Choose the form
 
-The default **live** form is drawn by SC Studio on DA's structured content SDK, the same engine as DA's own form, so both open the same record. It autosaves to DA, and has **Preview** and **Publish** next to it. It's the form that sends live drafts. If someone changes the record in DA while Studio is in the background, Studio reloads it instead of overwriting their change.
+By default SC Studio embeds the stock form, with its **Send** and **Edit schema**. The opt-in **live** form is drawn by SC Studio on DA's structured content SDK, the same engine as DA's own form, so both open the same record. It autosaves to DA, and has **Preview**, **Publish** and **Edit schema** next to it. It's the form that sends live drafts. If someone changes the record in DA while Studio is in the background, Studio reloads it instead of overwriting their change.
 
 The stock form is still available. It moved from `aemsites/sc-editor` into da-live ([adobe/da-live#1477](https://github.com/adobe/da-live/pull/1477)), and its **asset picker** (image and file fields from AEM Assets, including Dynamic Media) ships there with [adobe/da-live#1520](https://github.com/adobe/da-live/pull/1520). Embedded forms don't send live drafts: the channel updates after the form's **Send**.
 
 | key | form | live drafts | asset picker |
 |---|---|---|---|
-| `live` (default) | drawn by SC Studio | yes | no |
-| `headless` | stock sc-editor form, hosted inside Studio without a second DA header | no | no |
+| `headless` (default) | stock sc-editor form, hosted inside Studio without a second DA header | no | no |
+| `live` | drawn by SC Studio | yes | no |
 | `shell` | the same form as a full da.live page | no | no |
 | `dalive` | the da-live form at `da.live/form` | no | when #1520 ships |
 | `assets` | da-live's `scassets` preview branch | no | yes, to try it now |
@@ -81,7 +81,7 @@ AEM Assets appears in the picker when the site config has `aem.repositoryId`. Im
 
 ## Live drafts
 
-With the live form, on the **Preview** tier, Studio sends the draft to the channel 250 ms after each change. Nothing is saved or published for this. The messages are the same as Frescopa Studio's, so an app built for either Studio works in both:
+With the live form, on the **Draft** view, Studio sends the draft to the channel 250 ms after each change. Nothing is saved or published for this. The messages are the same as Frescopa Studio's, so an app built for either Studio works in both:
 
 1. The app tells Studio it's ready: `window.parent.postMessage({ type: 'structured-content-ready' }, '*')` (no data in it).
 2. Studio sends `{ type: 'structured-content', org, site, path, data }`, only to the channel's own origin. The app checks that the message comes from Studio's origin (`https://<branch>--sc-studio--aemxsc.preview.da.live`) and that `org`, `site` and `path` are a record it shows. Then it renders `data`, the record's fields.

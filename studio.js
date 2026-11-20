@@ -14,9 +14,10 @@
  *               {slug} x · {org} · {site}
  *   Devices: phone · tablet · desktop · kiosk · car (empty = phone)
  *
- * The default "live" form is drawn here on DA's structured content SDK: it autosaves,
- * has Preview and Publish, and sends the draft to the channel as you type (see
- * "Live drafts" below). The stock forms can still be embedded (?form=headless|assets…).
+ * The stock form is embedded by default. The opt-in "live" form (?form=live, or
+ * sc-studio.form = live in the site config) is drawn here on DA's structured content
+ * SDK: it autosaves, has Preview and Publish, and sends the draft to the channel as
+ * you type (see "Live drafts" below).
  * Either way, Studio watches the record and refreshes the channel (and reindexes the
  * path) when a preview or publish lands.
  */
@@ -193,7 +194,7 @@ async function watch() {
     const before = seen[t];
     seen[t] = body;
     if (before === undefined || before === body) return;
-    setStatus(`${t === 'live' ? 'Published' : 'Preview'} change detected, updating channel…`);
+    setStatus(`${t === 'live' ? 'Live' : 'Draft'} change detected, updating channel…`);
     await reindex(t).catch((error) => {
       // eslint-disable-next-line no-console
       console.warn('channel preview: reindex failed, channel may lag', error);
@@ -227,8 +228,8 @@ function wire() {
 /* ---- Which structured content form to use ----
  * Pick with ?form=<key>, or per site with the key "sc-studio.form" in the site
  * config's "data" sheet:
- *   live      drawn here on DA's SDK: autosave, Preview/Publish, live drafts (default)
- *   headless  stock sc-editor form, hosted here with no second DA header
+ *   headless  stock sc-editor form, hosted here with no second DA header (default)
+ *   live      drawn here on DA's SDK: autosave, Preview/Publish, live drafts
  *   shell     the same form as a full da.live page
  *   dalive    the da-live form at da.live/form (gets the asset picker when
  *             adobe/da-live#1520 ships)
@@ -243,7 +244,7 @@ const FORM_SOURCES = {
   dalive: { hosted: false, url: 'https://da.live/form#' },
   assets: { hosted: false, url: 'https://scassets--da-live--adobe.aem.page/form#' },
 };
-const DEFAULT_FORM = 'live';
+const DEFAULT_FORM = 'headless';
 
 function formSourceKey(config) {
   const fromUrl = new URLSearchParams(window.location.search).get('form');
@@ -285,7 +286,6 @@ function embedForm(sdk, form, fullPath) {
 
 async function liveForm(sdk, doc) {
   $('live').hidden = false;
-  $('open-in-da').href = `https://da.live/form#/${doc.org}/${doc.site}${doc.path}`;
   const daFetch = sdk.actions?.daFetch
     ?? ((url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${sdk.token}`, ...opts.headers } }));
   try {
@@ -300,6 +300,9 @@ async function liveForm(sdk, doc) {
       onPublished: () => watch(), // picks up the new version now, not on the next tick
     });
     draft = live.draft;
+    // same link as the stock form's Edit schema
+    const schemaPath = `/${doc.org}/${doc.site}/.da/forms/schemas/${encodeURIComponent(live.schemaName)}.html`;
+    Object.assign($('edit-schema'), { href: `https://da.live/app/aemsites/sc-editor/schemas#${schemaPath}`, hidden: false });
     return live.schemaName;
   } catch (error) {
     $('live-status').textContent = error.message;
