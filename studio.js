@@ -122,7 +122,7 @@ function setStatus(text, kind = '') {
 function fitDevice() {
   const ch = channels[$('channel').selectedIndex];
   if (!ch) return;
-  const device = $('device-type').value || ch.device;
+  const { device } = ch; // each channel row names its device
   const { w, h } = DEVICES[device];
   const wrap = $('device-wrap').getBoundingClientRect();
   const scale = Math.min((wrap.width - 32) / w, (wrap.height - 32) / h, 1);
@@ -208,11 +208,7 @@ async function watch() {
 }
 
 function wire() {
-  $('channel').addEventListener('change', () => {
-    $('device-type').value = channels[$('channel').selectedIndex]?.device ?? 'phone';
-    render();
-  });
-  $('device-type').addEventListener('change', fitDevice);
+  $('channel').addEventListener('change', render);
   $('reload').addEventListener('click', render);
   document.querySelectorAll('[data-tier]').forEach((b) => b.addEventListener('click', () => {
     tier = b.dataset.tier;
@@ -327,8 +323,6 @@ async function liveForm(sdk, doc) {
     : (embedForm(sdk, form, `/${doc.org}/${doc.site}${doc.path}`), await detectSchema(doc, token));
   channels = channelsFor(config, schema);
   $('channel').replaceChildren(...channels.map((c) => new Option(c.label)));
-  $('device-type').replaceChildren(...Object.keys(DEVICES).map((d) => new Option(d[0].toUpperCase() + d.slice(1), d)));
-  $('device-type').value = channels[0]?.device ?? 'phone';
   if (!channels.length) {
     setStatus('No channels configured: add a "channels" sheet to this site\'s DA config (see the sc-studio README).', 'err');
     return;

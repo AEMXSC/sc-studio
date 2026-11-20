@@ -45,7 +45,7 @@ In the **site** config (`https://da.live/config#/<org>/<site>/`), add a sheet na
   | `{slug}` | last path segment, e.g. `leave-no-trace` |
   | `{org}`, `{site}` | from the record |
 
-- **device:** `phone` (390×844, the default when empty), `tablet` (820×1180), `desktop` (1280×800), `kiosk` (1080×1920) or `car` (1280×480). The frame scales to fit, and the **device** menu switches it.
+- **device:** `phone` (390×844, the default when empty), `tablet` (820×1180), `desktop` (1280×800), `kiosk` (1080×1920) or `car` (1280×480). The frame scales to fit.
 
 A site with neither sheet still opens the form, with a note saying no channels are configured.
 
