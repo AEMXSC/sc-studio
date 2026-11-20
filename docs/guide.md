@@ -24,12 +24,13 @@ SC Studio puts the AEM structured content form next to a live preview of every c
 1. **Open a record in DA.** Browse to a records folder that's mapped to SC Studio (for example `/wknd-next/alerts` on wknd-adventures) and open a record. It opens in SC Studio instead of the plain form.
 2. **Pick a channel.** The menu at the top right lists only the channels for this record's schema: app, phone or website for a WKND alert. Each one is framed at its real size (desktop 1280×800, phone 390×844, kiosk 1080×1920) and scaled to fit.
 3. **Edit, then press Send.** Change a field and press the form's **Send**. Within about 4 seconds SC Studio sees the new version, reindexes that record and reloads the channel. You don't need to refresh anything yourself.
-4. **Compare draft and live.** **Preview** shows the previewed draft. **Published** shows what visitors see. Use **Open ↗** to open the channel full screen in a new tab, and **↻** to reload it.
+   - **Live form** (`?form=live`, or `sc-studio.form` = `live` in the site config): the channel shows changes as you type, changes save to DA automatically, and **Preview** and **Publish** sit above the form. An app that doesn't listen for drafts updates after **Preview**.
+4. **Compare draft and live.** **Draft** shows the previewed version (and live drafts). **Live** shows what visitors see. Use **Open channel ↗** to open the channel full screen in a new tab, and **↻** to reload it.
 
 | Phone channel | Website channel |
 |---|---|
 | ![The same trail alert in the WKND app at phone size](images/02-studio-phone.png) | ![The same alert on the wknd-adventures /trip-companion EDS page, Published tier](images/03-studio-website.png) |
-| **Phone · trail alert**: the same record in the app at phone size. | **Website · trip companion** on **Published**: the same alert on the EDS site, rendered by the `wknd-sc-list` block. |
+| **Phone · trail alert**: the same record in the app at phone size. | **Website · trip companion** on **Live**: the same alert on the EDS site, rendered by the `wknd-sc-list` block. |
 
 ![The Maya Surfer hero record: the form keeps the profile.name token, the app shows "Maya, the swell is lining up"](images/04-studio-hero.png)
 
@@ -82,7 +83,7 @@ Example from aemxsc:
 
 ### 2. List the channels to preview (site config)
 
-Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`previews`** with these four columns. Add one row per channel. The WKND rows are below:
+Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`channels`** with these four columns. The older name, `previews`, also works. `channels` is the name Frescopa Studio reads too. Devices are `phone`, `tablet`, `desktop`, `kiosk` and `car`. Add one row per channel. The WKND rows are below:
 
 | schema | label | url | device |
 |---|---|---|---|
@@ -96,15 +97,16 @@ Open `https://da.live/config#/<org>/<site>/` and add a sheet named exactly **`pr
 
 | Token | Becomes | Example |
 |---|---|---|
-| `{tier}` | the Preview / Published toggle | `preview`, `live` |
+| `{tier}` | the Draft / Live toggle | `preview`, `live` |
 | `{tld}` | the matching EDS host | `page` (aem.page), `live` (aem.live) |
 | `{path}` | record path | `/wknd-next/alerts/leave-no-trace` |
 | `{slug}` | last path segment | `leave-no-trace` |
 | `{org}`, `{site}` | from the record | `aemxsc`, `wknd-adventures` |
 
 - **schema** must match the record's schema name. A row with an empty schema shows for every record.
-- **url** must start with `https://`. **device** is `desktop`, `phone` or `kiosk`.
-- Without a `previews` sheet, SC Studio shows the form plus a note saying no previews are configured.
+- **url** must start with `https://`. **device** is `phone`, `tablet`, `desktop`, `kiosk` or `car`, and `phone` when it's empty.
+- Without either sheet, SC Studio shows the form plus a note saying no channels are configured.
+- **Live as you type:** to show drafts before they're previewed, the channel app listens for SC Studio's messages. See "Live drafts" in the [README](../README.md#live-drafts). wknd-next does this.
 
 ### 3. Make your channel app read the record (your app)
 
@@ -131,7 +133,7 @@ The page must be allowed to load inside a frame on da.live. Next.js and EDS page
 | The record opens in the plain form, not SC Studio | The `editor.path` row is missing, has no trailing `#`, or has a different case | Fix the row in the org config |
 | "No previews configured" | The site config has no `previews` sheet, or no row has a valid url and device | Add the sheet (step 2) |
 | The channel menu shows other schemas' rows | No row matches this record's schema, so all rows are shown | Check that **schema** matches the schema name exactly |
-| The preview is blank or refuses to load | The channel blocks framing (X-Frame-Options or CSP), or the URL isn't https | Allow da.live to frame it, or use **Open ↗** |
+| The preview is blank or refuses to load | The channel blocks framing (X-Frame-Options or CSP), or the URL isn't https | Allow da.live to frame it, or use **Open channel ↗** |
 | Send works but the preview shows old content | The channel app caches, or reads only the index | Re-read records from da-sc and skip the CDN cache |
 | A new record doesn't appear in lists | The site's index was never built | Build it once per tier (step 0) |
 

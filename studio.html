@@ -10,17 +10,26 @@
 <body>
   <main class="studio">
     <section class="pane form-pane" aria-label="Content form">
-      <iframe id="form-frame" title="Structured content form"></iframe>
+      <iframe id="form-frame" title="Structured content form" hidden></iframe>
+      <div class="live" id="live" hidden>
+        <div class="live-head">
+          <span id="live-status" class="status" role="status">Loading…</span>
+          <a class="ghost" id="edit-schema" target="_blank" rel="noopener" title="Edit this record's schema in a new tab" hidden>Edit schema</a>
+          <button type="button" class="ghost" id="live-preview" disabled>Preview</button>
+          <button type="button" class="primary" id="live-publish" disabled>Publish</button>
+        </div>
+        <form class="live-form" id="live-form" novalidate></form>
+      </div>
     </section>
     <section class="pane preview-pane" aria-label="Channel preview">
       <div class="preview-head">
         <select id="channel" aria-label="Channel"></select>
-        <div class="tier" role="group" aria-label="Content tier">
-          <button type="button" data-tier="preview" class="on">Preview</button>
-          <button type="button" data-tier="live">Published</button>
+        <div class="tier" role="group" aria-label="Show the draft or the live version">
+          <button type="button" data-tier="preview" class="on" title="Show previewed content (and live drafts)">Draft</button>
+          <button type="button" data-tier="live" title="Show published content">Live</button>
         </div>
         <span id="status" class="status" role="status"></span>
-        <a class="ghost" id="open" target="_blank" rel="noopener" title="Open this channel in a new tab">Open ↗</a>
+        <a class="ghost" id="open" target="_blank" rel="noopener" title="Open this channel in a new tab">Open channel ↗</a>
         <button type="button" class="ghost" id="reload" title="Reload preview" aria-label="Reload preview">↻</button>
       </div>
       <div class="device-wrap" id="device-wrap">
