@@ -54,7 +54,10 @@ A site with neither sheet still opens the form, with a note saying no channels a
 Open `https://da.live/app/aemxsc/sc-studio/studio` and paste your app's address (a Next.js, React or Astro app, or any web page) into the location in the middle of the header. Studio is laid out like Universal Editor: the app is the canvas, the record you click opens in the properties rail on the right, and the header has the same controls.
 - **✎ Edit** (the default): hovering outlines what you can change. Clicking selects it, shows its name in a label above it, and opens its record in the rail with the field outlined.
 - **Text and long text** can be typed straight into the app. Esc undoes the edit, Enter finishes a one-line field.
-- **Images and other fields** are edited in the rail.
+- **Images and other fields** are edited in the rail. An image field is a card with its thumbnail.
+  - **+ Add** offers **Upload from computer**, into the record's DA media folder (`<folder>/.<record>/`, as in EW), and **AEM Assets**: Adobe's Assets Selector with Content Advisor, on the site's `aem.repositoryId`.
+  - Clicking the card reopens AEM Assets in that image's folder.
+  - Being checked: an uploaded file's `content.da.live` address needs a DA sign-in, so confirm the published record's image is public before relying on uploads.
 - **As you type,** every place on the page that shows the same record updates, and the record autosaves to DA.
 - **▶ Preview** turns editing off, so links and buttons work.
 - **Other header controls:** the device button sizes the app (desktop, tablet, phone), and ↗ opens it in a new tab.

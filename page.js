@@ -190,6 +190,8 @@ export default function startPageMode({ sdk, daFetch, loadSiteConfig }) {
           repoConfig: state.repo,
           token: sdk.token,
           status: (text) => { els.status.textContent = text; },
+          doc: { org: state.org, site: state.site, path },
+          daFetch,
         }),
       });
       showHistory();

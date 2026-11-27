@@ -1,10 +1,11 @@
 /*
  * Image fields in page mode, like Universal Editor's: a card with the image's thumbnail
- * and name, ✕ to remove it, and "+ Add" to pick one with Adobe's AEM Assets Selector,
- * the same selector Experience Workspace and Universal Editor open (Content Advisor
- * included). The site's AEM Assets repository comes from its DA config
- * (aem.repositoryId), as in Experience Workspace. A pick stores the image's delivery
- * URL, resolved by da.live's own helpers, so it matches what EW stores.
+ * and name, and ✕ to remove it. "+ Add" offers the same two sources as EW's form:
+ * - Upload from computer, into the record's own DA media folder;
+ * - AEM Assets: Adobe's Assets Selector, the one EW and Universal Editor open (Content
+ *   Advisor included), on the site's repository (aem.repositoryId in its DA config).
+ *   A pick stores the delivery URL resolved by da.live's own helpers, as EW does.
+ * Clicking the card reopens AEM Assets in the image's folder, as Universal Editor does.
  */
 // eslint-disable-next-line import/no-unresolved
 import { resolveAssetSelection } from 'https://da.live/nx2/utils/aem-assets/selection.js';
@@ -15,6 +16,7 @@ import { createImagesOnlyFilterSchema } from 'https://da.live/nx2/utils/aem-asse
 // eslint-disable-next-line import/no-unresolved
 import { isDynamicMediaEnabled, shouldFilterApprovedAssets } from 'https://da.live/nx2/utils/aem-assets/config.js';
 
+const DA_ADMIN = 'https://admin.da.live';
 const SELECTOR_URL = 'https://experience.adobe.com/solutions/CQ-assets-selectors/static-assets/resources/assets-selectors.js';
 const IMAGE_FIELD = /image|photo|picture|banner|thumbnail/i;
 
@@ -59,8 +61,40 @@ function loadSelector() {
   return selectorLoad;
 }
 
+/**
+ * The AEM folder an image URL points into (…/content/dam/<folder>/<file>.jpg…), so the
+ * selector can open there with the current image in view, as Universal Editor does.
+ */
+export function damFolder(url) {
+  try {
+    const { pathname } = new URL(url);
+    return /^(\/content\/dam\/.*?)\/[^/]+\.(?:jpe?g|png|gif|webp|avif|svg|tiff?)(?:\/|$)/i.exec(pathname)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Uploads an image into the record's own DA media folder (<folder>/.<record>/<file>), the
+ * place EW's form and Canvas put uploads. Preview and publish copy it to the media bus.
+ */
+async function uploadImage({ file, doc, daFetch }) {
+  if (!file?.type?.startsWith('image/')) return { error: 'Choose an image file.' };
+  if (/[/\\?#]|^\.{1,2}$/.test(file.name)) return { error: 'That file name can\'t be used. Rename the file and try again.' };
+  const parent = doc.path.slice(0, doc.path.lastIndexOf('/'));
+  const record = doc.path.slice(parent.length + 1);
+  const body = new FormData();
+  body.append('data', file);
+  const resp = await daFetch(`${DA_ADMIN}/source/${doc.org}/${doc.site}${parent}/.${record}/${encodeURIComponent(file.name)}`, {
+    method: 'POST', body,
+  });
+  if (!resp.ok) return { error: `The upload failed (${resp.status}). Try again.` };
+  const href = (await resp.json().catch(() => null))?.source?.contentUrl;
+  return href ? { href } : { error: 'The upload didn\'t return the file\'s address.' };
+}
+
 /** Opens the selector in a dialog. Resolves with { href, alt }, { error }, or null when closed. */
-async function chooseImage(repoConfig, token) {
+async function chooseImage(repoConfig, token, folder) {
   const selectors = await loadSelector();
   if (typeof selectors?.renderAssetSelector !== 'function') return { error: 'The AEM Assets selector could not be loaded.' };
   const dialog = Object.assign(document.createElement('dialog'), { className: 'picker' });
@@ -78,7 +112,7 @@ async function chooseImage(repoConfig, token) {
     };
     close.addEventListener('click', () => finish(null));
     dialog.addEventListener('cancel', () => finish(null));
-    selectors.renderAssetSelector(container, buildAssetSelectorProps({
+    const props = buildAssetSelectorProps({
       imsToken: token,
       repoConfig,
       filterSchema: createImagesOnlyFilterSchema(),
@@ -90,7 +124,10 @@ async function chooseImage(repoConfig, token) {
         if (!isImage) return finish({ error: 'Only images can be chosen here.' });
         return finish({ href, alt });
       },
-    }));
+    });
+    // open where the current image lives (the selector takes a path on author tiers)
+    if (folder && repoConfig.tierType === 'author') props.path = folder;
+    selectors.renderAssetSelector(container, props);
   });
 }
 
@@ -102,60 +139,88 @@ const fileName = (url) => {
   }
 };
 
+const button = (className, text, label) => {
+  const b = Object.assign(document.createElement('button'), { type: 'button', className, textContent: text });
+  if (label) b.setAttribute('aria-label', label);
+  return b;
+};
+
+let cardCount = 0;
+
 /**
- * Turns each image field of a freshly drawn form into a card. `setField(pointer, value)`
- * changes the record; `status(text)` reports a problem in the rail.
+ * Turns each image field of a freshly drawn form into a card, as in Universal Editor and
+ * EW's form: "+ Add" offers Upload (into the record's DA media) and AEM Assets (Content
+ * Advisor); clicking the card reopens AEM Assets where the image lives.
+ * `setField(pointer, value)` changes the record; `status(text)` reports a problem.
  */
-export function imageCards(form, { setField, repoConfig, token, status }) {
+export function imageCards(form, {
+  setField, repoConfig, token, status, doc, daFetch,
+}) {
   form.querySelectorAll('input[data-pointer]').forEach((input) => {
     const key = input.dataset.pointer.split('/').pop();
     if (!isImageField(key) || input.type === 'checkbox' || input.closest('.field')?.querySelector('.asset-card')) return;
+    cardCount += 1;
     const card = Object.assign(document.createElement('div'), { className: 'asset-card' });
-    const set = (value) => {
-      input.value = value;
-      setField(input.dataset.pointer, value);
+    const file = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', hidden: true });
+    const menu = Object.assign(document.createElement('div'), { className: 'menu' });
+    menu.popover = 'auto';
+    menu.style.setProperty('position-anchor', `--asset-${cardCount}`);
+    card.style.setProperty('anchor-name', `--asset-${cardCount}`);
+
+    const set = (pick) => {
+      input.value = pick.href;
+      setField(input.dataset.pointer, pick.href);
+      const alt = form.querySelector(`[data-pointer="${CSS.escape(`${input.dataset.pointer}Alt`)}"]`);
+      if (alt && !alt.value && pick.alt) {
+        alt.value = pick.alt;
+        setField(alt.dataset.pointer, pick.alt);
+      }
       draw(); // eslint-disable-line no-use-before-define
     };
-    const add = async () => {
-      if (!repoConfig) {
-        status('No AEM Assets repository is set for this site (aem.repositoryId in its DA config). Paste an image URL instead.');
-        input.hidden = false;
-        input.focus();
-        return;
-      }
+    const take = async (choose) => {
       try {
-        const pick = await chooseImage(repoConfig, token);
+        const pick = await choose();
         if (pick?.error) status(pick.error);
-        if (!pick?.href) return;
-        set(pick.href);
-        const alt = form.querySelector(`[data-pointer="${CSS.escape(`${input.dataset.pointer}Alt`)}"]`);
-        if (alt && !alt.value && pick.alt) {
-          alt.value = pick.alt;
-          setField(alt.dataset.pointer, pick.alt);
-        }
+        if (pick?.href) set(pick);
       } catch (error) {
         status(error.message);
       }
     };
+    const fromAem = () => take(() => chooseImage(repoConfig, token, damFolder(input.value)));
+    file.addEventListener('change', () => {
+      const [chosen] = file.files;
+      file.value = '';
+      if (chosen) take(() => uploadImage({ file: chosen, doc, daFetch }));
+    });
+
+    const upload = button('', 'Upload from computer');
+    upload.addEventListener('click', () => { menu.hidePopover(); file.click(); });
+    const aem = button('', 'AEM Assets');
+    aem.addEventListener('click', () => { menu.hidePopover(); fromAem(); });
+    menu.append(upload, ...(repoConfig ? [aem] : []));
+
     function draw() {
       const url = input.value.trim();
-      card.replaceChildren();
-      if (url) {
-        const thumb = Object.assign(document.createElement('img'), { className: 'asset-thumb', alt: '', src: url });
-        const name = Object.assign(document.createElement('span'), { className: 'asset-name', textContent: fileName(url), title: url });
-        const remove = Object.assign(document.createElement('button'), {
-          type: 'button', className: 'icon', textContent: '✕', title: 'Remove the image',
-        });
-        remove.setAttribute('aria-label', `Remove ${name.textContent}`);
-        remove.addEventListener('click', () => set(''));
-        card.append(thumb, name, remove);
-      } else {
-        const plus = Object.assign(document.createElement('button'), { type: 'button', className: 'asset-add', textContent: '+ Add' });
-        plus.addEventListener('click', add);
+      card.replaceChildren(file, menu);
+      if (!url) {
+        const plus = button('asset-add', '+ Add');
+        plus.addEventListener('click', () => menu.showPopover());
         card.append(plus);
+        return;
       }
+      // clicking the image, like Universal Editor: AEM Assets where it lives, else replace it
+      const open = button('asset-open', '', `Change the image ${fileName(url)}`);
+      open.append(
+        Object.assign(document.createElement('img'), { className: 'asset-thumb', alt: '', src: url }),
+        Object.assign(document.createElement('span'), { className: 'asset-name', textContent: fileName(url), title: url }),
+      );
+      open.addEventListener('click', () => (repoConfig ? fromAem() : menu.showPopover()));
+      const remove = button('icon', '✕', `Remove ${fileName(url)}`);
+      remove.title = 'Remove the image';
+      remove.addEventListener('click', () => set({ href: '' }));
+      card.append(open, remove);
     }
-    input.hidden = Boolean(repoConfig); // the URL stays editable when there's no repository
+    input.hidden = true; // the card shows the value; the URL input stays the form's source of truth
     input.addEventListener('input', draw);
     input.before(card);
     draw();

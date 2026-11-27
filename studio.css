@@ -781,6 +781,25 @@ select {
   border-radius: 8px;
 }
 
+.asset-open {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.asset-open:hover .asset-name {
+  text-decoration: underline;
+}
+
 .asset-thumb {
   width: 44px;
   height: 44px;
