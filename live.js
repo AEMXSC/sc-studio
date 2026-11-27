@@ -26,7 +26,7 @@ const when = (date) => new Date(date).toLocaleString([], {
 const time = (date) => (date ? new Date(date).getTime() : 0);
 
 export async function startLiveForm({
-  doc, daFetch, token, els, onDraft, onPublished,
+  doc, daFetch, token, els, onDraft, onPublished, decorate, onHistory = () => {},
 }) {
   const { org, site, path } = doc;
   const setStatus = (text) => { els.status.textContent = text; };
@@ -127,12 +127,27 @@ export async function startLiveForm({
     done: () => saving ?? Promise.resolve(lastOk),
   };
 
+  // Undo and redo: snapshots of the record's data. A burst of typing is one step.
+  const UNDO_GAP_MS = 800;
+  const history = {
+    past: [], future: [], at: 0, restoring: false,
+  };
+  const remember = (before) => {
+    if (history.restoring) return;
+    const now = Date.now();
+    if (now - history.at > UNDO_GAP_MS) history.past.push(before.data);
+    history.at = now;
+    history.future = [];
+    onHistory();
+  };
+
   engine = createEngine({
     schema,
     document: json,
     onChange: () => {
       const { document: next } = engine.getState();
       if (next === lastDocument) return;
+      remember(lastDocument);
       lastDocument = next;
       showErrors(els.form, engine);
       checkErrors();
@@ -142,9 +157,15 @@ export async function startLiveForm({
   });
   lastDocument = engine.getState().document;
 
+  // close() removes these, so page mode can switch records without stacking listeners
+  const listeners = new AbortController();
+  const { signal } = listeners;
+
   // Changed elsewhere (e.g. DA's form editor) while Studio was in the background: reload.
-  window.addEventListener('focus', () => {
-    if (busy) return;
+  // On the tab becoming visible, not on window focus: focus also returns from the channel
+  // frame on every click there, and the check's inert form would swallow the next click.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || busy) return;
     busy = true;
     els.form.inert = true;
     (async () => {
@@ -155,7 +176,7 @@ export async function startLiveForm({
       els.form.inert = false;
       checkErrors();
     });
-  });
+  }, { signal });
 
   const publish = async (steps) => {
     if (busy) return;
@@ -188,11 +209,55 @@ export async function startLiveForm({
       checkErrors();
     }
   };
-  els.form.addEventListener('submit', (e) => e.preventDefault()); // fields save as you type
-  els.preview.addEventListener('click', () => publish([['preview', 'Previewing']]));
-  els.publish.addEventListener('click', () => publish([['preview', 'Previewing'], ['live', 'Publishing']]));
+  els.form.addEventListener('submit', (e) => e.preventDefault(), { signal }); // fields save as you type
+  els.preview.addEventListener('click', () => publish([['preview', 'Previewing']]), { signal });
+  els.publish.addEventListener('click', () => publish([['preview', 'Previewing'], ['live', 'Publishing']]), { signal });
 
-  renderForm(els.form, engine, { decorate: addPickers(engine, fragmentFields(schema), doc, token) });
+  const pickers = addPickers(engine, fragmentFields(schema), doc, token);
+  const draw = () => renderForm(els.form, engine, {
+    decorate: (form) => {
+      pickers(form);
+      decorate?.(form, (pointer, value) => engine.setField(pointer, value));
+    },
+  });
+
+  /** Puts the record back to an earlier snapshot, field by field, then redraws the form. */
+  const restore = (data) => {
+    const now = engine.getState().document.data;
+    history.restoring = true;
+    try {
+      new Set([...Object.keys(now), ...Object.keys(data)]).forEach((key) => {
+        if (JSON.stringify(now[key]) !== JSON.stringify(data[key])) engine.setField(`/data/${key}`, data[key] ?? '');
+      });
+    } finally {
+      history.restoring = false;
+      history.at = 0;
+    }
+    draw();
+    onHistory();
+  };
+  const step = (from, to) => {
+    if (!from.length) return;
+    to.push(engine.getState().document.data);
+    restore(from.pop());
+  };
+
+  draw();
   if (!checkErrors()) await showPublishState();
-  return { schemaName, draft: () => engine.getState().document.data };
+  return {
+    undo: () => step(history.past, history.future),
+    redo: () => step(history.future, history.past),
+    canUndo: () => history.past.length > 0,
+    canRedo: () => history.future.length > 0,
+    schemaName,
+    title: json.metadata?.title ?? '',
+    draft: () => engine.getState().document.data,
+    /** A value typed outside the form (page mode's inline editing); the SDK validates it. */
+    setField: (pointer, value) => engine.setField(pointer, value),
+    /** Stop listening, then wait for the last save, before another record opens. */
+    close: () => {
+      listeners.abort();
+      return save.done();
+    },
+  };
 }

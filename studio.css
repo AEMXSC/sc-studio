@@ -8,6 +8,7 @@
   --ok: #12805c;
   --err: #d31510;
   --device-bg: #2c2c2c;
+  --accent: #3b63fb;
 }
 
 * {
@@ -363,6 +364,427 @@ select {
 .item-add:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ---- Page mode, laid out like Universal Editor: a top bar across, the app as the
+   canvas, and a properties rail on the right for what was clicked ---- */
+.page-mode .studio {
+  grid-template:
+    "top top" auto
+    "app rail" 1fr / 1fr minmax(340px, 400px);
+}
+
+.page-mode .preview-pane {
+  display: contents;
+}
+
+/* the rail before anything is selected, as in Universal Editor */
+.rail-empty {
+  display: none;
+}
+
+.page-mode .live.empty > :not(.rail-empty) {
+  display: none;
+}
+
+.page-mode .live.empty .rail-empty {
+  display: grid;
+  justify-items: center;
+  padding: 72px 24px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.rail-empty svg {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 24px;
+  fill: none;
+  stroke: #9a9a9a;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.rail-empty p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.rail-empty .rail-empty-title {
+  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ▶ Preview: the rail hides and the app fills the window, as in Universal Editor */
+.page-mode.previewing .studio {
+  grid-template:
+    "top" auto
+    "app" 1fr / 1fr;
+}
+
+.page-mode.previewing .form-pane {
+  display: none;
+}
+
+.modes .icon[data-mode="browse"].on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.page-mode .preview-head {
+  grid-area: top;
+  gap: 8px;
+}
+
+.page-mode .device-wrap {
+  grid-area: app;
+  background: #e8e8e8;
+}
+
+.page-mode .device {
+  inset: 12px;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+  translate: none;
+}
+
+.page-mode .form-pane {
+  grid-area: rail;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.pm {
+  display: none;
+}
+
+.page-mode .pm {
+  display: inline-flex;
+}
+
+.page-mode #open,
+.page-mode #reload {
+  display: none;
+}
+
+.page-mode #status {
+  flex: 0 1 auto;
+  max-width: 300px;
+  font-size: 12px;
+}
+
+/* like Universal Editor: no status line when all is well; only progress and problems show */
+.page-mode #status.ok {
+  display: none;
+}
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon:hover,
+.modes .icon.on {
+  background: #e6e6e6;
+}
+
+.icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.icon svg .fill {
+  fill: currentcolor;
+  stroke: none;
+}
+
+.modes {
+  gap: 2px;
+}
+
+.icon:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.icon:disabled:hover {
+  background: none;
+}
+
+/* image fields: a card like Universal Editor's (thumbnail, name, remove) or "+ Add" */
+.asset-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+}
+
+.asset-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: var(--bg);
+  object-fit: cover;
+}
+
+.asset-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-add {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.asset-add:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.picker-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.publish {
+  align-items: center;
+  height: 32px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  font: 700 14px/1 "Adobe Clean", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+/* menus are popovers, anchored under the button that opens them */
+.menu {
+  min-width: 180px;
+  margin: 4px 0 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 15%);
+  inset: auto;
+  top: anchor(bottom);
+  right: anchor(right);
+}
+
+.menu:popover-open {
+  display: grid;
+  gap: 2px;
+}
+
+.menu button,
+.menu a {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu button:hover,
+.menu a:hover {
+  background: var(--bg);
+}
+
+.menu button.on {
+  font-weight: 700;
+}
+
+.menu button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.menu-label {
+  margin: 4px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#device-btn { anchor-name: --device; }
+#device-menu { position-anchor: --device; }
+#publish-btn { anchor-name: --publish; }
+#publish-menu { position-anchor: --publish; }
+#more-btn { anchor-name: --more; }
+#more-menu { position-anchor: --more; }
+.record-field .icon { anchor-name: --record; }
+#record-menu { position-anchor: --record; }
+
+.page-mode .device[data-size="tablet"],
+.page-mode .device[data-size="phone"] {
+  right: auto;
+  left: 50%;
+  max-width: calc(100% - 24px);
+  translate: -50% 0;
+}
+
+.page-mode .device[data-size="tablet"] {
+  width: 820px;
+}
+
+.page-mode .device[data-size="phone"] {
+  width: 390px;
+}
+
+/* the location, like Universal Editor's: plain host text after undo/redo; on click, a
+   box with the scheme as its own segment and the rest of the address selected */
+.address {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  max-width: 640px;
+  min-width: 0;
+  height: 36px;
+  margin-inline: 8px auto;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.address:focus-within {
+  border-color: #6e6e6e;
+  background: var(--panel);
+}
+
+.address .scheme {
+  display: none;
+  padding: 0 10px 0 12px;
+  border-right: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.address:focus-within .scheme {
+  display: inline-block;
+}
+
+.address input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+}
+
+.address:not(:focus-within):hover input {
+  background: var(--bg);
+}
+
+.address input:focus {
+  outline: none;
+  color: var(--ink);
+}
+
+/* rail fields, closer to Universal Editor's properties panel */
+.page-mode .field label {
+  font-weight: 400;
+}
+
+.page-mode .field-required {
+  color: inherit;
+}
+
+.page-mode .field input:not([type="checkbox"]),
+.page-mode .field select,
+.page-mode .field textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+/* rail header: record breadcrumb, then the selected field, then the record's state */
+.page-mode .live-head {
+  order: -1;
+  padding: 0 20px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.record-label {
+  order: -3;
+  margin: 0;
+  padding: 16px 20px 4px;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-label::after {
+  content: " ›";
+}
+
+.record-field {
+  display: flex;
+  order: -2;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  padding: 8px 20px;
+  font-weight: 600;
+}
+
+.record-field .icon {
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.field-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: 600 16px/1 Georgia, serif;
+}
+
+.field.is-target {
+  margin: -10px;
+  padding: 10px;
+  border-radius: 8px;
+  outline: 2px solid var(--accent);
 }
 
 /* fragment picker plugin, in a dialog */
