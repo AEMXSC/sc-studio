@@ -24,6 +24,7 @@
 // eslint-disable-next-line import/no-unresolved
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { startLiveForm } from './live.js';
+import startPageMode from './page.js';
 
 const FORM_APP = 'https://da.live/app/aemsites/sc-editor/form#';
 const DA_ADMIN = 'https://admin.da.live';
@@ -280,14 +281,15 @@ function embedForm(sdk, form, fullPath) {
   frame.src = `${form.url}${fullPath}`;
 }
 
+const daFetchFor = (sdk) => sdk.actions?.daFetch
+  ?? ((url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${sdk.token}`, ...opts.headers } }));
+
 async function liveForm(sdk, doc) {
   $('live').hidden = false;
-  const daFetch = sdk.actions?.daFetch
-    ?? ((url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${sdk.token}`, ...opts.headers } }));
   try {
     const live = await startLiveForm({
       doc,
-      daFetch,
+      daFetch: daFetchFor(sdk),
       token: sdk.token,
       els: {
         form: $('live-form'), status: $('live-status'), preview: $('live-preview'), publish: $('live-publish'),
@@ -312,8 +314,9 @@ async function liveForm(sdk, doc) {
   const doc = resolveDoc(sdk.context);
   ctx = { doc, token };
   wire();
-  if (!doc.org || !doc.site || doc.path === '/') {
-    setStatus('Open this app from a structured content document.', 'err');
+  // Page mode: an app URL (?app=, or typed into Studio), not one record
+  if (new URLSearchParams(window.location.search).has('app') || !doc.org || !doc.site || doc.path === '/') {
+    startPageMode({ sdk, daFetch: daFetchFor(sdk), loadSiteConfig });
     return;
   }
   const config = await loadSiteConfig(doc, token);

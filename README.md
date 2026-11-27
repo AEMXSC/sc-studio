@@ -49,6 +49,64 @@ In the **site** config (`https://da.live/config#/<org>/<site>/`), add a sheet na
 
 A site with neither sheet still opens the form, with a note saying no channels are configured.
 
+## Page mode: open any app and edit it in place
+
+Open `https://da.live/app/aemxsc/sc-studio/studio` and paste your app's address (a Next.js, React or Astro app, or any web page) into the location in the middle of the header. Studio is laid out like Universal Editor: the app is the canvas, the record you click opens in the properties rail on the right, and the header has the same controls.
+- **✎ Edit** (the default): hovering outlines what you can change. Clicking selects it, shows its name in a label above it, and opens its record in the rail with the field outlined.
+- **Text and long text** can be typed straight into the app. Esc undoes the edit, Enter finishes a one-line field.
+- **Images and other fields** are edited in the rail.
+- **As you type,** every place on the page that shows the same record updates, and the record autosaves to DA.
+- **▶ Preview** turns editing off, so links and buttons work.
+- **Other header controls:** the device button sizes the app (desktop, tablet, phone), ↗ opens it in a new tab, and **Publish** offers the two destinations, **Preview** (the AEM preview tier) and **Live**.
+- **The address follows the app** as you navigate inside it.
+- **Edit schema** is in the rail's "…" menu.
+
+Studio opens the app with `tier=preview` added to its address, so the app shows previewed records along with the drafts. `?app=<url-encoded address>` on Studio's URL opens an app straight away.
+
+### Make your app editable (three additions)
+
+```html
+<!-- 1. which DA site the records come from -->
+<meta name="sc:site" content="<org>/<site>">
+<!-- 2. the bridge (a classic script; inert unless SC Studio frames the page) -->
+<script src="https://main--sc-studio--aemxsc.aem.live/bridge.js" defer></script>
+<!-- 3. Universal Editor's markup: the record on an element, a field on its children -->
+<article data-content-path="/wknd-next/alerts/leave-no-trace">
+  <h3 data-aue-prop="title" data-aue-type="text" data-aue-label="Title">…</h3>
+  <div data-aue-prop="details" data-aue-type="richtext" data-aue-label="Details">…</div>
+  <img data-aue-prop="image" data-aue-type="media" data-aue-label="Image" src="…">
+</article>
+```
+
+- **Where to put them.** Next.js: in `app/layout.tsx`. Astro: in your layout's `<head>`. React/Vite: in `index.html`.
+- **Field names.** `data-aue-prop` is the record's field name. If your markup uses other names (an app built for Content Fragments), map them with `<script type="application/json" id="sc-bridge-config">{"props":{"heroImage":"image"}}</script>`.
+- **Types.** `text` is one line. `richtext` is long text: a blank line starts a paragraph. `media` is an image URL.
+- **Computed content.** To re-render something computed from a field, listen for `window.addEventListener('sc:draft', (e) => …)`. `e.detail` is `{ path, data }`.
+
+**Who can edit.** The app's origin must match a `url` in the site's `channels` sheet. Apps on `localhost` can always edit. Other apps open read-only, with a message.
+
+**Messages** (all carry `v: 1`; Studio only accepts them from the framed app's origin, and the bridge only from SC Studio's):
+
+| From | Type | Payload |
+|---|---|---|
+| app | `sc:ready` | none (sent to `*`) |
+| Studio | `sc:connect`, `sc:mode` | `{ edit }` |
+| app | `sc:page` | `{ site, url, records }` |
+| app | `sc:select` | `{ path, field, label, kind, inline }` |
+| Studio | `sc:record` | `{ path, data }`: the stored record, so inline editing starts from its real value (e.g. with `{{tokens}}`) |
+| app | `sc:edit` | `{ path, field, value }` |
+| Studio | `sc:draft` | `{ path, data }` |
+
+**Where an edit goes:**
+
+| Step | What happens | Who sees it |
+|---|---|---|
+| You type | The draft shows in the app, and the record is saved to DA | Only you, in Studio |
+| **Preview** | The record goes to the preview tier | Apps reading `tier=preview` |
+| **Publish** | The record goes live | Everyone, on their next load |
+
+The app's own code only changes when you deploy it. Studio edits content, never code. A local app edits the same records as production, so for rehearsals point it at a separate DA site.
+
 ## Choose the form
 
 By default SC Studio embeds the stock form, with its **Send** and **Edit schema**. The opt-in **live** form is drawn by SC Studio on DA's structured content SDK, the same engine as DA's own form, so both open the same record. It autosaves to DA, and has **Preview**, **Publish** and **Edit schema** next to it. It's the form that sends live drafts. If someone changes the record in DA while Studio is in the background, Studio reloads it instead of overwriting their change.
