@@ -131,9 +131,13 @@ async function chooseImage(repoConfig, token, folder) {
   });
 }
 
-const fileName = (url) => {
+/** The image's name as Universal Editor shows it: the asset, not a rendition of it. */
+export const fileName = (url) => {
   try {
-    return decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() ?? url);
+    const { pathname } = new URL(url);
+    // …/hero.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg names a rendition of hero.jpg
+    const asset = /^(.*?\/[^/]+\.[a-z0-9]+)\/(?:jcr:content|_jcr_content)\//i.exec(pathname)?.[1] ?? pathname;
+    return decodeURIComponent(asset.split('/').filter(Boolean).pop() ?? url);
   } catch {
     return url;
   }
