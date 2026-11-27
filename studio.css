@@ -208,6 +208,7 @@ select {
 .live-form {
   display: grid;
   flex: 1;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-content: start;
   padding: 20px;
@@ -255,7 +256,9 @@ select {
 
 .field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
+  min-width: 0;
 }
 
 .field label {
@@ -989,8 +992,22 @@ select {
 .page-mode .field input:not([type="checkbox"]),
 .page-mode .field select,
 .page-mode .field textarea {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 8px;
+}
+
+/* the shared select rule fixes a 32px height, which clipped the value under this padding */
+.page-mode .field select {
+  height: auto;
+}
+
+/* Universal Editor's spacing: a clear gap under each label and between fields */
+.page-mode .live-form {
+  gap: 20px;
+}
+
+.page-mode .field {
+  gap: 8px;
 }
 
 /* rail header: record breadcrumb, then the selected field, then the record's state */
