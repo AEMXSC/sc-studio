@@ -80,9 +80,22 @@
   const send = (type, payload = {}) => studio && window.parent.postMessage({ ...payload, v: V, type }, studio);
 
   function sendPage() {
-    const records = [...new Set([...document.querySelectorAll('[data-content-path]')].map((el) => el.dataset.contentPath))];
+    const roots = [...document.querySelectorAll('[data-content-path]')];
+    const records = [...new Set(roots.map((el) => el.dataset.contentPath))];
+    // a name per record for Studio's Publish list: its label, else its first heading, else
+    // its first field with text (an image field has none), else all its text
+    const labels = {};
+    roots.forEach((el) => {
+      const text = el.dataset.aueLabel
+        || el.querySelector('h1, h2, h3, h4')?.textContent
+        || [...el.querySelectorAll('[data-aue-prop]')].map((f) => f.textContent.trim()).find(Boolean)
+        || el.textContent;
+      labels[el.dataset.contentPath] ??= text.trim().replace(/\s+/g, ' ').slice(0, 80);
+    });
     const site = document.querySelector('meta[name="sc:site"]')?.content ?? '';
-    const page = JSON.stringify({ site, url: window.location.href, records });
+    const page = JSON.stringify({
+      site, url: window.location.href, records, labels,
+    });
     if (page === lastPage) return;
     lastPage = page;
     send('sc:page', JSON.parse(page));

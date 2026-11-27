@@ -315,10 +315,11 @@ async function liveForm(sdk, doc) {
   ctx = { doc, token };
   wire();
   // Page mode: an app URL (?app=, or typed into Studio), not one record
-  if (new URLSearchParams(window.location.search).has('app') || !doc.org || !doc.site || doc.path === '/') {
-    startPageMode({ sdk, daFetch: daFetchFor(sdk), loadSiteConfig });
-    return;
-  }
+  const pageMode = new URLSearchParams(window.location.search).has('app') || !doc.org || !doc.site || doc.path === '/';
+  if (pageMode) startPageMode({ sdk, daFetch: daFetchFor(sdk), loadSiteConfig });
+  // the mode is set: show Studio (hidden until now, so the other mode's controls never flash)
+  document.body.classList.remove('loading');
+  if (pageMode) return;
   const config = await loadSiteConfig(doc, token);
   const form = FORM_SOURCES[formSourceKey(config)];
   const schema = form.live

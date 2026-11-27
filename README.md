@@ -57,7 +57,12 @@ Open `https://da.live/app/aemxsc/sc-studio/studio` and paste your app's address 
 - **Images and other fields** are edited in the rail.
 - **As you type,** every place on the page that shows the same record updates, and the record autosaves to DA.
 - **▶ Preview** turns editing off, so links and buttons work.
-- **Other header controls:** the device button sizes the app (desktop, tablet, phone), ↗ opens it in a new tab, and **Publish** offers the two destinations, **Preview** (the AEM preview tier) and **Live**.
+- **Other header controls:** the device button sizes the app (desktop, tablet, phone), and ↗ opens it in a new tab.
+- **Publish** works as in Universal Editor:
+  - Choose the destination, **Preview** (the AEM preview tier) or **Live**.
+  - **View** lists the records on the page with their status (Modified, Published, Not published). Changed ones are selected.
+  - Publish previews each selected record (and, for Live, publishes it). A toast reports the result.
+- **Studio reopens the last app** you opened.
 - **The address follows the app** as you navigate inside it.
 - **Edit schema** is in the rail's "…" menu.
 

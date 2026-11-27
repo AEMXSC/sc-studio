@@ -59,6 +59,11 @@ select {
   cursor: pointer;
 }
 
+/* hidden until studio.js knows which mode it's in (record or page), so neither flashes */
+.loading .studio {
+  visibility: hidden;
+}
+
 .studio {
   display: grid;
   flex: 1;
@@ -378,6 +383,241 @@ select {
   display: contents;
 }
 
+/* Publish, like Universal Editor's: destination cards, then the items with their status */
+.page-mode #live-preview,
+.page-mode #live-publish {
+  display: none;
+}
+
+.panel {
+  width: 420px;
+  max-height: 80vh;
+  margin: 8px 0 0;
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%);
+  inset: auto;
+  top: anchor(bottom);
+  right: anchor(right);
+}
+
+.panel h2 {
+  margin: 0 0 18px;
+  font-size: 20px;
+}
+
+.panel h3 {
+  margin: 18px 0 10px;
+  font-size: 16px;
+}
+
+.dest {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dest-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.dest-card:has(:checked) {
+  border-color: #c9c9c9;
+}
+
+.dest-card input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.items-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px 10px 14px;
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.items-row svg,
+.items-head svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.items-row span {
+  flex: 1;
+}
+
+.pill,
+.chip {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #e6e6e6;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.chip {
+  border-radius: 10px;
+}
+
+.chip.on {
+  background: var(--ink);
+  color: #fff;
+}
+
+.panel-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 28px;
+}
+
+.publish:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.items-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.items-head h2 {
+  flex: 1;
+  margin: 0;
+}
+
+.items-head input,
+.publish-list input {
+  width: 18px;
+  height: 18px;
+  margin: 0 0 0 8px;
+  accent-color: var(--accent);
+}
+
+.publish-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.publish-list li {
+  min-width: 0; /* a grid item: let long names truncate instead of widening the row */
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-status {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  width: 118px;
+}
+
+.item-status::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8e8e8e;
+  content: "";
+}
+
+.item-status.changed::before {
+  background: #e05a00;
+}
+
+.item-status.done::before {
+  background: var(--ok);
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: min(560px, 90vw);
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 20%);
+  translate: -50% 0;
+}
+
+.toast.error {
+  background: var(--err);
+}
+
+.toast svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.toast button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 /* the rail before anything is selected, as in Universal Editor */
 .rail-empty {
   display: none;
@@ -644,7 +884,7 @@ select {
 #device-btn { anchor-name: --device; }
 #device-menu { position-anchor: --device; }
 #publish-btn { anchor-name: --publish; }
-#publish-menu { position-anchor: --publish; }
+#publish-panel { position-anchor: --publish; }
 #more-btn { anchor-name: --more; }
 #more-menu { position-anchor: --more; }
 .record-field .icon { anchor-name: --record; }

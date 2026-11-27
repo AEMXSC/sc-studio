@@ -7,6 +7,7 @@
  */
 import { startLiveForm } from './live.js';
 import { imageCards, repositoryConfig } from './assets.js';
+import wirePublish from './publish.js';
 
 const $ = (id) => document.getElementById(id);
 const V = 1;
@@ -67,7 +68,7 @@ function remember(value) {
 export default function startPageMode({ sdk, daFetch, loadSiteConfig }) {
   const frame = $('preview-frame');
   const state = {
-    origin: '', org: '', site: '', allowed: false, check: null, edit: true, live: null, path: '', opening: Promise.resolve(),
+    origin: '', org: '', site: '', allowed: false, check: null, edit: true, live: null, path: '', opening: Promise.resolve(), records: [],
   };
   let draftTimer;
 
@@ -95,8 +96,14 @@ export default function startPageMode({ sdk, daFetch, loadSiteConfig }) {
   }
 
   /** The app told us which DA site it reads: only listed apps (or localhost) may edit. */
-  async function onPage({ site, records, url }) {
+  async function onPage({
+    site, records, labels, url,
+  }) {
     showLocation(url);
+    // the records on the page, named as the app shows them (for Publish)
+    state.records = (Array.isArray(records) ? records : [])
+      .filter((path) => typeof path === 'string' && path.startsWith('/'))
+      .map((path) => ({ path, label: (typeof labels?.[path] === 'string' && labels[path]) || path.split('/').pop() }));
     const [, org, name] = SITE.exec(site ?? '') ?? [];
     if (!org) {
       setStatus('This app doesn\'t say which DA site it reads. Add <meta name="sc:site" content="org/site"> (see the README).', 'err');
@@ -247,10 +254,18 @@ export default function startPageMode({ sdk, daFetch, loadSiteConfig }) {
     ['channel', 'tier'].forEach((id) => { $(id).hidden = true; });
     $('address').hidden = false;
     $('address').after($('status'));
-    // Publish opens a menu with the two destinations, as in Universal Editor
-    $('publish-menu').append($('live-preview'), $('live-publish'));
-    Object.assign($('live-preview'), { className: '', textContent: 'Preview' });
-    Object.assign($('live-publish'), { className: '', textContent: 'Live' });
+    // Publish works on every record on the page, as in Universal Editor (publish.js)
+    wirePublish({
+      page: () => ({ org: state.org, site: state.site, records: state.allowed ? state.records : [] }),
+      daFetch,
+      token: sdk.token,
+      beforePublish: async () => {
+        if (!state.live) return [];
+        await state.live.saved();
+        return state.live.errors() ? [state.path] : [];
+      },
+      afterPublish: () => state.live?.refresh(),
+    });
     $('record-menu').append($('edit-schema'));
     $('edit-schema').className = '';
     document.querySelectorAll('.menu').forEach((menu) => menu.addEventListener('click', (e) => {
@@ -323,6 +338,7 @@ export default function startPageMode({ sdk, daFetch, loadSiteConfig }) {
 
   const start = new URLSearchParams(window.location.search).get('app') || remember();
   $('app-url').value = restingAddress(start);
-  if (new URLSearchParams(window.location.search).has('app')) open(start);
+  // reopen the last app (or ?app=): an address on screen with an empty canvas reads as broken
+  if (start) open(start);
   else $('app-url').focus();
 }

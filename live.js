@@ -254,6 +254,10 @@ export async function startLiveForm({
     draft: () => engine.getState().document.data,
     /** A value typed outside the form (page mode's inline editing); the SDK validates it. */
     setField: (pointer, value) => engine.setField(pointer, value),
+    /** For page mode's Publish: wait for the last save, count errors, redraw the state line. */
+    saved: () => save.done(),
+    errors: () => errorCount(),
+    refresh: () => showPublishState().catch(() => {}),
     /** Stop listening, then wait for the last save, before another record opens. */
     close: () => {
       listeners.abort();
